@@ -30,3 +30,7 @@ async def delete_saving(saving_id: int, db: AsyncSession = Depends(get_async_ses
     if not deleted:
         raise HTTPException(status_code=404, detail="Saving not found")
     return {"detail": "Saving deleted successfully"}
+
+@router.get("/categories", response_model=List[str])
+async def get_categories(db: AsyncSession = Depends(get_async_session)):
+    return await service.get_categories(db)

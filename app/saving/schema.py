@@ -24,3 +24,6 @@ class SavingEntry(SavingBase):
 
     class Config:
         from_attributes = True
+
+class SavingCategory(BaseModel):
+    pass

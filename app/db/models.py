@@ -50,4 +50,15 @@ class Saving(Base):
     note = Column(String, default="", nullable=True)  # ✅ Optional note
     title = Column(String, nullable=False)
 
-    user = relationship("User", back_populates="savings")  # 👈 Link back to User
+    user = relationship("User", back_populates="savings")  # �� Link back to User
+
+# ------------------ NEW: Chat History Model ------------------
+
+class ChatHistory(Base):
+    __tablename__ = "chat_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    message = Column(String, nullable=False)
+    is_bot = Column(Boolean, default=False, nullable=False)
+    timestamp = Column(Date, server_default=func.now(), nullable=False)

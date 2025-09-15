@@ -35,6 +35,12 @@ async def delete_saving(db: AsyncSession, saving_id: int, user_id: int) -> bool:
     await db.commit()
     return True
 
+async def get_categories(db: AsyncSession) -> List[str]:
+    result = await db.execute(select(Saving.category))
+    categories = result.scalars().all()
+    return list(set(categories))
+
+
 async def add_savings_bulk(db: AsyncSession, entries: List[SavingCreate], user_id: int):
     new_savings = [Saving(**entry.dict(), user_id=user_id) for entry in entries]
     db.add_all(new_savings)
