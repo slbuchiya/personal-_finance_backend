@@ -1,20 +1,22 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.auth.dependencies import get_current_user
+from app.db.models import User as UserModel  # ✅ fix
 from app.chatbot.service import handle_chat
-from app.chatbot.schema import ChatRequest, ChatResponse
-from app.expense.service import add_expense
-from app.income.service import add_income
+from app.chatbot.schema import ChatRequest, ChatResponseList
+from app.db.database import get_async_session
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/api/chatbot",
+    tags=["Chatbot"]
+)
 
-@router.post("/chat", response_model=ChatResponse)
-async def chat_endpoint(request: ChatRequest):
-    parsed_data = await handle_chat(request.message)
-    intent = parsed_data.intent
+@router.post("/chat", response_model=ChatResponseList)
+async def chat_handler(
+    request: ChatRequest,
+    db: AsyncSession = Depends(get_async_session),
+    current_user: UserModel = Depends(get_current_user)  # ✅ use UserModel here
+):
+    return await handle_chat(request.message, db, current_user.id)
 
-    # Pass parsed data to respective modules
-    if intent == "add_expense":
-        await add_expense(parsed_data)
-    elif intent == "add_income":
-        await add_income(parsed_data)
-
-    return parsed_data
+print("✅ Chatbot router loaded")

@@ -1,81 +1,57 @@
-import csv
-import os
 from typing import List
-from datetime import datetime
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 from app.expense.schema import ExpenseCreate, ExpenseUpdate, ExpenseEntry
+from app.db.models import Expense
 
-DATA_FILE = "data/expenses.csv"
-_executor = ThreadPoolExecutor()
 
-async def _read_expenses() -> List[ExpenseEntry]:
-    if not os.path.exists(DATA_FILE):
-        return []
+async def add_expense(user_id: int, db: AsyncSession, entry: ExpenseCreate) -> Expense:
+    new_expense = Expense(**entry.dict(), user_id=user_id)
+    db.add(new_expense)
+    await db.commit()
+    await db.refresh(new_expense)
+    return new_expense
 
-    def read_file():
-        with open(DATA_FILE, mode="r", newline="") as file:
-            reader = csv.reader(file)
-            return [
-                ExpenseEntry(
-                    id=int(row[0]),
-                    date=datetime.strptime(row[1], "%Y-%m-%d").date(),
-                    amount=float(row[2]),
-                    category=row[3],
-                    note=row[4]
-                )
-                for row in reader
-            ]
-    return await asyncio.get_event_loop().run_in_executor(_executor, read_file)
 
-async def _write_expenses(expenses: List[ExpenseEntry]):
-    def write_file():
-        # Make sure the data directory exists before writing
-        os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
+async def get_all_expenses(db: AsyncSession, user_id: int) -> List[ExpenseEntry]:
+    result = await db.execute(select(Expense).where(Expense.user_id == user_id))
+    expenses = result.scalars().all()
+    return [ExpenseEntry.from_orm(exp) for exp in expenses]
 
-        with open(DATA_FILE, mode="w", newline="") as file:
-            writer = csv.writer(file)
-            for exp in expenses:
-                writer.writerow([exp.id, exp.date.strftime("%Y-%m-%d"), exp.amount, exp.category, exp.note])
-    await asyncio.get_event_loop().run_in_executor(_executor, write_file)
 
-async def add_expense(entry: ExpenseCreate) -> ExpenseEntry:
-    expenses = await _read_expenses()
-    new_id = (max([e.id for e in expenses]) + 1) if expenses else 1
-    new_entry = ExpenseEntry(id=new_id, **entry.dict())
-    expenses.append(new_entry)
-    await _write_expenses(expenses)
-    return new_entry
-
-async def get_all_expenses() -> List[ExpenseEntry]:
-    return await _read_expenses()
-
-async def delete_expense(expense_id: int) -> bool:
-    expenses = await _read_expenses()
-    updated = [e for e in expenses if e.id != expense_id]
-    if len(updated) == len(expenses):
-        return False  # Not found
-    await _write_expenses(updated)
+async def delete_expense(user_id: int, db: AsyncSession, expense_id: int) -> bool:
+    result = await db.execute(select(Expense).where(Expense.id == expense_id).where(Expense.user_id == user_id))
+    expense = result.scalar_one_or_none()
+    if not expense:
+        return False
+    await db.delete(expense)
+    await db.commit()
     return True
 
-async def update_expense(expense_id: int, data: ExpenseUpdate) -> ExpenseEntry:
-    expenses = await _read_expenses()
-    updated_entry = None
+async def update_expense(db: AsyncSession, user_id: int, expense_id: int, data: ExpenseUpdate): 
+    result = await db.execute(select(Expense).where(Expense.id == expense_id).where(Expense.user_id == user_id))
+    expense = result.scalar_one_or_none()
+    if not expense:
+        raise ValueError("Expense not found or does not belong to the user.") # Added user context to error message
 
-    for i, e in enumerate(expenses):
-        if e.id == expense_id:
-            updated_data = e.dict()
-            updated_data.update({k: v for k, v in data.dict().items() if v is not None})
-            updated_entry = ExpenseEntry(**updated_data)
-            expenses[i] = updated_entry
-            break
+    for key, value in data.dict(exclude_unset=True).items():
+        setattr(expense, key, value)
 
-    if updated_entry:
-        await _write_expenses(expenses)
-        return updated_entry
-    else:
-        raise ValueError("Expense not found.")
+    db.add(expense)
+    await db.commit()
+    await db.refresh(expense)
+    return ExpenseEntry.from_orm(expense)
 
-async def get_categories() -> List[str]:
-    expenses = await _read_expenses()
-    return list(set(e.category for e in expenses))
+async def get_categories(db: AsyncSession) -> List[str]:
+    result = await db.execute(select(Expense.category))
+    categories = result.scalars().all()
+    return list(set(categories))
+
+
+async def add_expenses_bulk(db: AsyncSession, entries: List[ExpenseCreate],user_id: int):
+    new_expenses = [Expense(**entry.dict(), user_id=user_id) for entry in entries]
+    db.add_all(new_expenses)
+    await db.commit()
+    for expense in new_expenses:
+        await db.refresh(expense)
+    return new_expenses
