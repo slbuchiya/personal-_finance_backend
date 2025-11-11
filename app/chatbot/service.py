@@ -15,7 +15,7 @@ from app.summary.service import get_summary
 
 load_dotenv()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-model = genai.GenerativeModel("gemini-1.5-flash")
+model = genai.GenerativeModel("models/gemini-2.5-flash")
 
 def build_prompt(user_message: str) -> str:
     return f"""
@@ -39,9 +39,9 @@ Do not guess missing values. Use today's date if no date is provided and one is 
 
 ### Example Inputs and Outputs
 
-**Input:**
-spent 200 on lunch  
-**Output:**
+Input:
+spent 200 on lunch
+Output:
 [
   {{
     "intent": "add_expense",
@@ -52,9 +52,9 @@ spent 200 on lunch
   }}
 ]
 
-**Input:**
-earned 8000 from freelance  
-**Output:**
+Input:
+earned 8000 from freelance
+Output:
 [
   {{
     "intent": "add_income",
@@ -65,9 +65,9 @@ earned 8000 from freelance
   }}
 ]
 
-**Input:**
-how much money do I have left?  
-**Output:**
+Input:
+how much money do I have left?
+Output:
 [
   {{
     "intent": "get_summary",
@@ -87,7 +87,7 @@ Now extract data from this message and return only the JSON array:
 #     text = response.text.strip()
 
 #     print("Gemini raw response:", text)
-#     cleaned = re.sub(r"```json|```", "", text).strip()
+#     cleaned = re.sub(r"json|", "", text).strip()
 
 #     try:
 #         data = json.loads(cleaned)
@@ -197,7 +197,7 @@ async def handle_chat(user_message: str, db, user_id: int) -> ChatResponseList:
     text = response.text.strip()
 
     print("Gemini raw response:", text)
-    cleaned = re.sub(r"```json|```", "", text).strip()
+    cleaned = re.sub(r"json|", "", text).strip()
 
     try:
         data = json.loads(cleaned)
@@ -298,7 +298,7 @@ async def handle_chat(user_message: str, db, user_id: int) -> ChatResponseList:
 
     if saving_entries:
         stored_savings = await add_savings_bulk(db, saving_entries, user_id=user_id)
-        for save in stored_savings: 
+        for save in stored_savings:
             responses.append(ChatResponse(
                 intent="add_saving",
                 amount=save.amount,

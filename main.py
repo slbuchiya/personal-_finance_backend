@@ -1,7 +1,7 @@
 # Load existing data or initialize
 # df_expense = pd.read_csv(EXPENSE_FILE) if os.path.exists(EXPENSE_FILE) else pd.DataFrame(columns=["amount", "category", "date", "note"])
 # df_income = pd.read_csv(INCOME_FILE) if os.path.exists(INCOME_FILE) else pd.DataFrame(columns=["amount", "category", "date", "note"])
-# # 🧠 Function to Parse Entries Using Gemini 1.5 Pro
+# #  Function to Parse Entries Using Gemini 1.5 Pro
 # def parse_entry(text):
 #     today = datetime.today().strftime('%Y-%m-%d')
 #     prompt = f"""
@@ -24,7 +24,7 @@
 #     try:
 #         return json.loads(response.text.strip())
 #     except Exception as e:
-#         raise ValueError("⚠️ Could not parse Gemini response:\n" + str(e))
+#         raise ValueError("⚠Could not parse Gemini response:\n" + str(e))
 
 from fastapi import FastAPI, Depends, APIRouter
 from fastapi.openapi.utils import get_openapi
@@ -40,12 +40,19 @@ from app.db.models import Expense, Income, User
 from init_db import init_db
 from app.auth.router import router as auth_router
 from app.auth.dependencies import get_current_user, User
+from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI(
     title="Personal Finance Bot API",
     version="1.0"
 )
-
-# 👇 Include routers
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # for dev: * ; for production restrict to front-end URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+#  Include routers
 app.include_router(auth_router)
 app.include_router(chat_router)
 app.include_router(expense_router)
@@ -59,7 +66,7 @@ for route in app.routes:
 @app.get("/test-secure")
 async def test_secure(current_user: User = Depends(get_current_user)):
     return {"message": f"Hello {current_user.email}"}
-# 👇 Inject global Bearer Auth to Swagger UI
+#  Inject global Bearer Auth to Swagger UI
 # def custom_openapi():
 #     if app.openapi_schema:
 #         return app.openapi_schema
